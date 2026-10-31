@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 毎日12:00に自動同期。スリープ中だった場合は復帰後に実行される。
+     インストール: cp tools/com.furfolk.sync.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.furfolk.sync.plist -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.furfolk.sync</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>"$HOME/furfolk_sync/repo/tools/auto_sync.sh"</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>12</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/matsumotokazuya/furfolk_sync/logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/matsumotokazuya/furfolk_sync/logs/launchd.err.log</string>
+</dict>
+</plist>

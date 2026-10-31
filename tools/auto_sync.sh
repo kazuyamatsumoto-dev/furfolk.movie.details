@@ -1,0 +1,22 @@
+#!/bin/bash
+# LaunchAgent から呼ばれる自動同期（Claude を使わない）。
+# sync.sh を実行し、未push の commit があれば macOS のダイアログで push の可否を聞く。
+# 「push する」が押されたときだけ push。応答がなければ push せず、次回また聞く。
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO" || exit 1
+
+git pull -q --ff-only origin "$(git rev-parse --abbrev-ref HEAD)" >/dev/null 2>&1
+SUMMARY=$("$REPO/sync.sh" 2>&1)
+
+BR=$(git rev-parse --abbrev-ref HEAD)
+AHEAD=$(git rev-list --count "origin/$BR..HEAD" 2>/dev/null || echo 0)
+[ "$AHEAD" -gt 0 ] || exit 0
+
+MSG=$(printf '%s\n\n未push: %s commit。公開ページに反映（push）しますか？' "$SUMMARY" "$AHEAD" | sed 's/\\/\\\\/g; s/"/\\"/g')
+ANSWER=$(osascript -e "display dialog \"$MSG\" with title \"furfolk 同期\" buttons {\"あとで\", \"push する\"} default button \"あとで\" giving up after 3600" 2>/dev/null)
+case "$ANSWER" in
+  *"push する"*)
+    RESULT=$("$REPO/sync.sh" --push 2>&1)
+    osascript -e "display notification \"$RESULT\" with title \"furfolk 同期\"" >/dev/null 2>&1 ;;
+esac

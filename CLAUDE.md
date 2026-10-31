@@ -11,3 +11,9 @@
 - カテゴリ外フォルダの新着と、99_素材直下の新しいフォルダは、処理せず要約で1回だけ知らせる。
 - 状態: `~/furfolk_sync/state/`（failed.tsv＝前回の失敗、known_*＝通知済み）。失敗した動画は未登録のままなので次回自動で再試行される。
 - 途中で止まっても、生成済みの画像は `~/furfolk_sync/staging/` に残り、次回にそのまま反映される。
+
+## 自動実行（Claude を使わない運用）
+- `~/Library/LaunchAgents/com.furfolk.sync.plist`（元: `tools/com.furfolk.sync.plist`）が毎日12:00に `~/furfolk_sync/repo/tools/auto_sync.sh` を実行する。
+- `~/furfolk_sync/repo` は自動実行専用の clone（main）。~/Documents は macOS の保護で launchd から読めないため。
+- 追加があれば macOS のダイアログで push を確認する。「push する」を押したときだけ公開。
+- 手動で今すぐ同期したいとき: ターミナルで `~/furfolk_sync/repo/tools/auto_sync.sh`。
