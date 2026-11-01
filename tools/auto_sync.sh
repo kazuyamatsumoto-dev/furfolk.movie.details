@@ -14,7 +14,9 @@ AHEAD=$(git rev-list --count "origin/$BR..HEAD" 2>/dev/null || echo 0)
 [ "$AHEAD" -gt 0 ] || exit 0
 
 MSG=$(printf '%s\n\n未push: %s commit。公開ページに反映（push）しますか？' "$SUMMARY" "$AHEAD" | sed 's/\\/\\\\/g; s/"/\\"/g')
-ANSWER=$(osascript -e "display dialog \"$MSG\" with title \"furfolk 同期\" buttons {\"あとで\", \"push する\"} default button \"あとで\" giving up after 3600" 2>/dev/null)
+ANSWER=$(osascript -e "display dialog \"$MSG\" with title \"furfolk 同期\" buttons {\"あとで\", \"push する\"} default button \"あとで\" giving up after 3600" 2>&1)
+# ダイアログの結果を残す（押されたボタン / 時間切れ / 表示エラー）
+echo "$(TZ=Asia/Tokyo date +%Y%m%d_%H%M%S) dialog: $(echo "$ANSWER" | tr '\n' ' ')" >>"$HOME/furfolk_sync/logs/history.log"
 case "$ANSWER" in
   *"push する"*)
     RESULT=$("$REPO/sync.sh" --push 2>&1)
