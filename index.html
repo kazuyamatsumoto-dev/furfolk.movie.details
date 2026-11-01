@@ -57,6 +57,22 @@
   }
   .sub{ color:var(--muted); font-size:11px; line-height:1.5; }
   .empty{ text-align:center; color:var(--muted); padding:60px 0; font-size:14px; }
+  .group{ border:1px solid var(--border); border-radius:10px; background:var(--panel); margin-bottom:10px; }
+  .group > summary{
+    cursor:pointer; padding:12px 14px; font-size:14px; font-weight:600;
+    display:flex; gap:10px; align-items:baseline; list-style:none;
+  }
+  .group > summary::-webkit-details-marker{ display:none; }
+  .group > summary::before{ content:"▸"; color:var(--muted); }
+  .group[open] > summary::before{ content:"▾"; }
+  .group .gcat{ font-size:10px; font-weight:400; color:var(--accent); }
+  .group .gcount{ font-size:12px; font-weight:400; color:var(--muted); margin-left:auto; white-space:nowrap; }
+  .group .grid{ padding:0 14px 14px; }
+  .group-tools{ display:flex; gap:8px; margin-bottom:10px; }
+  .group-tools button{
+    padding:6px 10px; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel-2); color:var(--text); font-size:12px; cursor:pointer;
+  }
 </style>
 </head>
 <body>
@@ -65,6 +81,11 @@
   <div class="controls">
     <input type="search" id="q" placeholder="タイトルで検索…">
     <select id="cat"><option value="">すべてのカテゴリ</option></select>
+    <select id="folder"><option value="">すべてのフォルダ</option></select>
+    <select id="view">
+      <option value="list">表示: 一覧</option>
+      <option value="folder">表示: フォルダ別</option>
+    </select>
     <select id="sort">
       <option value="date-desc">処理日: 新しい順</option>
       <option value="date-asc">処理日: 古い順</option>
@@ -74,7 +95,12 @@
   </div>
 </header>
 <main>
+  <div class="group-tools" id="groupTools" style="display:none;">
+    <button type="button" id="openAll">すべて開く</button>
+    <button type="button" id="closeAll">すべて閉じる</button>
+  </div>
   <div class="grid" id="grid"></div>
+  <div id="groups"></div>
   <div class="empty" id="empty" style="display:none;">該当する項目がありません</div>
 </main>
 <script>
@@ -91,16 +117,107 @@ async function main(){
   }
 
   const grid = document.getElementById('grid');
+  const groupsEl = document.getElementById('groups');
+  const groupTools = document.getElementById('groupTools');
   const empty = document.getElementById('empty');
   const countEl = document.getElementById('count');
   const qEl = document.getElementById('q');
   const sortEl = document.getElementById('sort');
+  const folderSel = document.getElementById('folder');
+  const viewSel = document.getElementById('view');
+
+  // 撮影フォルダ = 99_素材 / <カテゴリ> の次の階層（全角／と半角/の表記ゆれは同じフォルダとして扱う）
+  const folderOf = d => ((d.folderPath || [])[2] || '(フォルダなし)').replace(/\s*[／/]\s*/g, ' / ');
+  for(const d of data) d._folder = folderOf(d);
+
+  try { viewSel.value = localStorage.getItem('furfolk-view') || 'list'; } catch(e) {}
+
+  function fillFolders(){
+    const cat = catSel.value;
+    const prev = folderSel.value;
+    const counts = new Map();
+    for(const d of data) if(!cat || d.category === cat) counts.set(d._folder, (counts.get(d._folder) || 0) + 1);
+    folderSel.length = 1;
+    for(const f of [...counts.keys()].sort().reverse()){
+      const o = document.createElement('option');
+      o.value = f; o.textContent = f + ' (' + counts.get(f) + ')';
+      folderSel.appendChild(o);
+    }
+    folderSel.value = counts.has(prev) ? prev : '';
+  }
+
+  function makeCard(d){
+    const a = document.createElement('a');
+    a.className = 'card';
+    a.href = d.driveUrl || '#';
+    a.target = '_blank';
+    a.rel = 'noopener';
+
+    const img = document.createElement('img');
+    img.className = 'thumb';
+    img.loading = 'lazy';
+    img.src = d.img || '';
+    img.alt = d.title;
+    a.appendChild(img);
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.innerHTML =
+      '<span class="tag">' + d.category + '</span>' +
+      '<p class="title" title="' + d.title.replace(/"/g,'&quot;') + '">' + d.title + '</p>' +
+      '<div class="sub">' +
+        (d.folderPath && d.folderPath.length ? d.folderPath.join(' / ') + '<br>' : '') +
+        d.processedDate + ' ・ ' + (d.fileSizeMB ?? '?') + 'MB' +
+      '</div>';
+    a.appendChild(meta);
+    return a;
+  }
+
+  function fillGrid(el, items){
+    const frag = document.createDocumentFragment();
+    for(const d of items) frag.appendChild(makeCard(d));
+    el.appendChild(frag);
+  }
+
+  function renderGroups(items){
+    const groups = new Map();
+    for(const d of items){
+      if(!groups.has(d._folder)) groups.set(d._folder, []);
+      groups.get(d._folder).push(d);
+    }
+    const names = [...groups.keys()].sort();
+    if(sortEl.value !== 'title-asc') names.reverse();
+    const single = names.length === 1;
+    const frag = document.createDocumentFragment();
+    for(const name of names){
+      const list = groups.get(name);
+      const det = document.createElement('details');
+      det.className = 'group';
+      const sum = document.createElement('summary');
+      const cats = [...new Set(list.map(d => d.category))].join(', ');
+      sum.innerHTML = '<span></span><span class="gcat"></span><span class="gcount"></span>';
+      sum.children[0].textContent = name;
+      sum.children[1].textContent = cats;
+      sum.children[2].textContent = list.length + ' 件';
+      det.appendChild(sum);
+      const g = document.createElement('div');
+      g.className = 'grid';
+      det.appendChild(g);
+      // 開いたときに初めてカードを作る（件数が多くても軽く保つ）
+      det.addEventListener('toggle', () => { if(det.open && !g.childElementCount) fillGrid(g, list); });
+      if(single){ fillGrid(g, list); det.open = true; }
+      frag.appendChild(det);
+    }
+    groupsEl.appendChild(frag);
+  }
 
   function render(){
     const q = qEl.value.trim().toLowerCase();
     const cat = catSel.value;
+    const folder = folderSel.value;
     let items = data.filter(d => {
       if(cat && d.category !== cat) return false;
+      if(folder && d._folder !== folder) return false;
       if(q && !d.title.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -113,41 +230,30 @@ async function main(){
 
     countEl.textContent = items.length + ' / ' + data.length + ' 件';
     grid.innerHTML = '';
+    groupsEl.innerHTML = '';
     empty.style.display = items.length ? 'none' : 'block';
 
-    const frag = document.createDocumentFragment();
-    for(const d of items){
-      const a = document.createElement('a');
-      a.className = 'card';
-      a.href = d.driveUrl || '#';
-      a.target = '_blank';
-      a.rel = 'noopener';
-
-      const img = document.createElement('img');
-      img.className = 'thumb';
-      img.loading = 'lazy';
-      img.src = d.img || '';
-      img.alt = d.title;
-      a.appendChild(img);
-
-      const meta = document.createElement('div');
-      meta.className = 'meta';
-      meta.innerHTML =
-        '<span class="tag">' + d.category + '</span>' +
-        '<p class="title" title="' + d.title.replace(/"/g,'&quot;') + '">' + d.title + '</p>' +
-        '<div class="sub">' +
-          (d.folderPath && d.folderPath.length ? d.folderPath.join(' / ') + '<br>' : '') +
-          d.processedDate + ' ・ ' + (d.fileSizeMB ?? '?') + 'MB' +
-        '</div>';
-      a.appendChild(meta);
-      frag.appendChild(a);
-    }
-    grid.appendChild(frag);
+    const byFolder = viewSel.value === 'folder';
+    grid.style.display = byFolder ? 'none' : '';
+    groupTools.style.display = byFolder && items.length ? '' : 'none';
+    if(byFolder) renderGroups(items); else fillGrid(grid, items);
   }
 
   qEl.addEventListener('input', render);
-  catSel.addEventListener('change', render);
+  catSel.addEventListener('change', () => { fillFolders(); render(); });
+  folderSel.addEventListener('change', render);
   sortEl.addEventListener('change', render);
+  viewSel.addEventListener('change', () => {
+    try { localStorage.setItem('furfolk-view', viewSel.value); } catch(e) {}
+    render();
+  });
+  document.getElementById('openAll').addEventListener('click', () => {
+    for(const det of groupsEl.querySelectorAll('details')) det.open = true;
+  });
+  document.getElementById('closeAll').addEventListener('click', () => {
+    for(const det of groupsEl.querySelectorAll('details')) det.open = false;
+  });
+  fillFolders();
   render();
 }
 main();
