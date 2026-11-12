@@ -1,6 +1,6 @@
 #!/bin/bash
 # LaunchAgent から呼ばれる自動同期（Claude を使わない）。
-# sync.sh を実行し、未push の commit があれば macOS のダイアログで push の可否を聞く。
+# sync.sh と auto_memo.sh（メモ付け）を実行し、未push の commit があれば macOS のダイアログで push の可否を聞く。
 # 「push する」が押されたときだけ push。応答がなければ push せず、次回また聞く。
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -8,6 +8,9 @@ cd "$REPO" || exit 1
 
 git pull -q --ff-only origin "$(git rev-parse --abbrev-ref HEAD)" >/dev/null 2>&1
 SUMMARY=$("$REPO/sync.sh" 2>&1)
+# メモ未記入の動画があれば Claude で一言メモを付ける（失敗しても同期は続ける）
+MEMO=$("$REPO/tools/auto_memo.sh" 2>&1 | tail -1)
+[ -n "$MEMO" ] && SUMMARY=$(printf '%s\n%s' "$SUMMARY" "$MEMO")
 
 BR=$(git rev-parse --abbrev-ref HEAD)
 AHEAD=$(git rev-list --count "origin/$BR..HEAD" 2>/dev/null || echo 0)
