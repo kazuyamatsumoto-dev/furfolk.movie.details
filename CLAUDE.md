@@ -5,6 +5,12 @@
 - index.html は変更しない。既存の data.json / images/ は再処理しない。
 - トークン消費を抑える: 普段はスクリプトの要約だけを見る。ログ（`~/furfolk_sync/logs/`）は必要なときだけ読む。
 
+## クリップのメモ（memos.json）
+- 動画IDごとの一言メモ（場所／動き＝少・中・多／内容／写り／注意）。1行1動画なので、画像を見る前に `grep` で候補を絞る（例: `grep スタジオ memos.json | grep '"動き": "少"'`）。
+- メモは選別ではなく説明。動きが少ないものや使いにくいものも除外せず全件に付ける。良し悪しの判定は書かない。
+- 一覧画像（12コマ）から付けた目安なので、画角から外れるかなどの細かい確認は制作時に別途行う。
+- 現在は hugness の886本のみ。同期で増えた動画と他カテゴリは未記入。data.json には書き込まない（同期と競合させないため）。
+
 ## 仕組み
 - `sync.sh`: 共有ドライブ furfolk の 99_素材 を rclone で再帰走査 → data.json 未登録の動画を1本ずつ DL → `tools/gen_contact.sh` で12コマのコンタクトシート → 動画削除 → data.json 追記・検証 → commit。
 - カテゴリ対応: 01_HUGNESS=hugness, 02_monu=monu, 03_furpot=furpot, 04_original figure=original-figure, 05_3D Photo撮影=3d-photo（`tools/sync_lib.py` の CATEGORIES）。
