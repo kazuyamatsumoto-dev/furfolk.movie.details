@@ -56,6 +56,10 @@
     background:var(--panel-2); color:var(--accent); border:1px solid var(--border); margin-bottom:4px;
   }
   .sub{ color:var(--muted); font-size:11px; line-height:1.5; }
+  .memo{ margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); font-size:11.5px; line-height:1.55; }
+  .memo .what{ color:var(--text); margin:0 0 3px; }
+  .memo .row{ color:var(--muted); margin:0; }
+  .memo .note{ color:var(--accent-2); margin:2px 0 0; }
   .empty{ text-align:center; color:var(--muted); padding:60px 0; font-size:14px; }
   .group{ border:1px solid var(--border); border-radius:10px; background:var(--panel); margin-bottom:10px; }
   .group > summary{
@@ -79,7 +83,7 @@
 <header>
   <h1>furfolk 処理済み動画ギャラリー</h1>
   <div class="controls">
-    <input type="search" id="q" placeholder="タイトルで検索…">
+    <input type="search" id="q" placeholder="タイトル・メモで検索（例：芝生 着せる トラ）…">
     <select id="cat"><option value="">すべてのカテゴリ</option></select>
     <select id="folder"><option value="">すべてのフォルダ</option></select>
     <select id="view">
@@ -107,6 +111,15 @@
 async function main(){
   const res = await fetch('data.json');
   const data = await res.json();
+
+  // 動画ごとの一言メモ（memos.json）。読めなくてもギャラリーはそのまま表示する
+  let memos = {};
+  try { const mr = await fetch('memos.json'); if(mr.ok) memos = await mr.json(); } catch(e) {}
+  for(const d of data){
+    const m = memos[d.id];
+    d._memo = m || null;
+    d._text = (d.title + ' ' + (m ? [m['場所'], m['動き'], m['内容'], m['写り'], m['注意']].join(' ') : '')).toLowerCase();
+  }
 
   const catSel = document.getElementById('cat');
   const cats = [...new Set(data.map(d => d.category))].sort();
@@ -169,6 +182,16 @@ async function main(){
         (d.folderPath && d.folderPath.length ? d.folderPath.join(' / ') + '<br>' : '') +
         d.processedDate + ' ・ ' + (d.fileSizeMB ?? '?') + 'MB' +
       '</div>';
+    const m = d._memo;
+    if(m){
+      const box = document.createElement('div');
+      box.className = 'memo';
+      const line = (cls, text) => { if(!text) return; const p = document.createElement('p'); p.className = cls; p.textContent = text; box.appendChild(p); };
+      line('what', m['内容']);
+      line('row', [m['場所'], m['動き'] ? '動き：' + m['動き'] : '', m['写り']].filter(Boolean).join('｜'));
+      line('note', m['注意'] ? '注意：' + m['注意'] : '');
+      meta.appendChild(box);
+    }
     a.appendChild(meta);
     return a;
   }
@@ -212,13 +235,13 @@ async function main(){
   }
 
   function render(){
-    const q = qEl.value.trim().toLowerCase();
+    const words = qEl.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const cat = catSel.value;
     const folder = folderSel.value;
     let items = data.filter(d => {
       if(cat && d.category !== cat) return false;
       if(folder && d._folder !== folder) return false;
-      if(q && !d.title.toLowerCase().includes(q)) return false;
+      if(words.length && !words.every(w => d._text.includes(w))) return false;
       return true;
     });
     const sort = sortEl.value;
