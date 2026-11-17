@@ -7,7 +7,7 @@
   apply <workdir> <reply.txt>   Claude の返答（n|場所|動き|内容|写り|注意）を検証して memos.json に追記
                                  → 標準出力に「added=N skipped=M」
 
-対象カテゴリは環境変数 MEMO_CATEGORIES（カンマ区切り、既定は hugness）。
+対象カテゴリは環境変数 MEMO_CATEGORIES（カンマ区切り、既定は hugness。auto_memo.sh からは hugness,monu）。
 MEMO_DRY=1 のときは apply で memos.json を書き換えない（試験用）。
 """
 import json

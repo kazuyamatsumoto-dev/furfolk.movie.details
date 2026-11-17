@@ -2,7 +2,7 @@
 # メモ未記入の動画に、Claude（コマンド版）で一言メモを付けて commit する。push はしない。
 #   tools/auto_memo.sh            未記入があれば最大 MEMO_LIMIT 本（既定60）にメモを付ける
 #   MEMO_DRY=1 tools/auto_memo.sh  memos.json を書き換えず、commit もしない（試験用）
-#   MEMO_CATEGORIES=hugness,monu   対象カテゴリ（既定は hugness のみ）
+#   MEMO_CATEGORIES=hugness        対象カテゴリ（既定は hugness,monu）
 # 標準出力は最後の要約1行だけ。詳細は ~/furfolk_sync/logs/memo_*.log。
 # 失敗しても同期は止めない: 付けられなかった動画は未記入のまま残り、次回また対象になる。
 set -uo pipefail
@@ -14,6 +14,7 @@ LOGDIR="$HOME_DIR/logs"; WORKDIR="$HOME_DIR/memo_work"
 PY=/usr/bin/python3            # Pillow が入っている python
 LIB="$REPO/tools/memo_lib.py"
 LIMIT="${MEMO_LIMIT:-60}"
+export MEMO_CATEGORIES="${MEMO_CATEGORIES:-hugness,monu}"
 MODEL="${MEMO_MODEL:-sonnet}"
 TIMEOUT="${MEMO_TIMEOUT:-1200}"
 TODAY=$(TZ=Asia/Tokyo date +%Y-%m-%d)
@@ -36,7 +37,7 @@ import json,sys
 for i in json.load(open(sys.argv[1])): print('#%d %s （%s）' % (i['n'], i['title'], i['folder']))
 " "$WORKDIR/index.json")
 
-PROMPT="犬用ハーネスの撮影素材に、検索用の一言メモを付けてください。
+PROMPT="犬用ハーネス（HUGNESS）と犬用の知育トイ（monu・動物の形をした犬のおもちゃ）の撮影素材に、検索用の一言メモを付けてください。撮影フォルダ名が 02_monu で始まるものが monu の素材です。
 
 次の画像を Read で開いてください。1枚に最大15本の動画が並び、各動画は黒い帯の #番号 とファイル名の下に、時間順の12コマ（左上が最初）で表示されています。
 $SHEETS
@@ -49,7 +50,7 @@ $LIST
 
 - 場所: 例「スタジオ・白背景」「屋外・公園の芝生」「屋内・フローリング」「車内」
 - 動き: 少・中・多 のどれか1文字。映像がない（真っ黒など）場合は —
-- 内容: 誰が何をしているか。ハーネスが見えるなら色も書く（例「緑のハーネスのイタグレが歩く」）。着せる場面は「着せる」と書く
+- 内容: 誰が何をしているか。ハーネスが見えるなら色も書く（例「緑のハーネスのイタグレが歩く」）。着せる場面は「着せる」と書く。monu が写るなら何の動物の形かも書く（例「柴犬がトラのmonuをくわえて振る」「monu単体の置き撮り」）
 - 写り: 寄り／中／引き、正面／横／後ろ、ローアングル／俯瞰、固定 など
 - 注意: 使うときの注意点や向いている用途（例「長尺」「逆光で暗い」「犬は小さい」「商品が見やすい」「着せシーン」「犬なし」）。なければ空欄
 - メモは選別ではなく説明です。動きが少ない動画や使いにくい動画も必ず1行書き、良し悪しの判定は書かないでください
